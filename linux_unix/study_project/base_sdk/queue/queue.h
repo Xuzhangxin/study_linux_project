@@ -13,17 +13,20 @@ typedef struct queue {
     QUEUE_NODE_S *tail;
     int bytes;
     int cnt; // 队列长度
+    int max_depth; // 最大深度
     pthread_mutex_t mutex; // 内部互斥锁
 } QUEUE_S;
 
 
-QUEUE_S *test_queue_init(int bytes);
+QUEUE_S *test_queue_init(int bytes, int max_depth);
 
 void test_in_queue_malloc(QUEUE_S *p_queue, void *value);
 
 void *test_out_queue_malloc(QUEUE_S *p_queue);
 
 void test_queue_destroy(QUEUE_S *p_queue);
+
+int test_queue_depth_get(QUEUE_S *p_queue);
 
 
 #endif
