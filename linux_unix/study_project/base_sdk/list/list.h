@@ -22,7 +22,7 @@ void link_list_add_tail_node(LINK_LIST_S *list, LINK_LIST_S *node);
 void link_list_del_node(LINK_LIST_S *list, LINK_LIST_S *node);
 
 // 清空链表
-void link_list_destroy(LINK_LIST_S *list);
+void link_list_destroy(LINK_LIST_S *list, TRRAVELSAL_CB cb);
 
 // 判断链表是否为空
 bool link_list_is_empty(LINK_LIST_S *list);
