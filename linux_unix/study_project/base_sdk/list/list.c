@@ -7,15 +7,6 @@
 
 
 
-void MY_PRINTF(const char *fmt, ...)
-{
-#if defined(DEBUG_BASE_SDK) && (DEBUG_BASE_SDK == 1)
-    printf(fmt);
-    fflush(stdout);
-#endif
-}
-
-
 // 初始化链表
 void link_list_init(LINK_LIST_S* list)
 {

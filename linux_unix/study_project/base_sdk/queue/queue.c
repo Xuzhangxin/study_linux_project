@@ -43,7 +43,7 @@ QUEUE_HANDLE test_queue_init(int bytes, int max_depth, FREE_NODE_CB cb)
 
     ret = pthread_mutex_init(&p_queue->mutex, NULL); //默认锁
     if (ret != 0) {
-        printf("queue mutex init failed");
+        MY_PRINTF("queue mutex init failed");
         return NULL;
     }
 
@@ -81,7 +81,7 @@ void test_in_queue_malloc(QUEUE_HANDLE handle, void *value)
         p_value = (void *)malloc(p_queue->bytes);
         if (NULL == p_value) {
             pthread_mutex_unlock(&p_queue->mutex);
-            printf("in queue malloc failure\n");
+            MY_PRINTF("in queue malloc failure\n");
             free(node);
             node = NULL;
             return;
@@ -89,7 +89,7 @@ void test_in_queue_malloc(QUEUE_HANDLE handle, void *value)
 
         memcpy(p_value, value, p_queue->bytes); 
         node->value = p_value;
-        printf("in queue value: %p\n", p_value);
+        MY_PRINTF("in queue value: %p\n", p_value);
     }
   
 
@@ -126,7 +126,7 @@ void *test_out_queue_malloc(QUEUE_HANDLE handle)
     QUEUE_NODE_S *node = p_queue->head;
     if (node == NULL) {
         pthread_mutex_unlock(&p_queue->mutex);
-        printf("p_queue->head queue is empty\n");
+        MY_PRINTF("p_queue->head queue is empty\n");
         return NULL;
     }
 
@@ -141,7 +141,7 @@ void *test_out_queue_malloc(QUEUE_HANDLE handle)
         p_value = (void *)malloc(p_queue->bytes);
         CHECK_NULL_RETURN_NULL(p_value);
         memcpy(p_value, node->value, p_queue->bytes);
-        printf("out queue value: %p\n", node->value);
+        MY_PRINTF("out queue value: %p\n", node->value);
     }
     p_queue->cnt--;
 
