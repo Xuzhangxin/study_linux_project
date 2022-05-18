@@ -12,13 +12,20 @@
 // 读写锁相比互斥锁而言，有更好的并行性，多个线程只是想共享读数据的时候，不用阻塞等待
 // 写操作比较多或本身操作不怎么频繁的程序中，使用互斥量，读操作大于写操作的用读写锁同步
 
-// 链式队列实现
+typedef struct queue_node {
+    struct queue_node *next;
+    void *value;
+} QUEUE_NODE_S;
 
-// 入操作用size来操作是否更好
-
-
-//hal 锁
-//自定义释放内存函数
+typedef struct queue {
+    QUEUE_NODE_S *head;
+    QUEUE_NODE_S *tail;
+    int bytes;
+    int cnt; // 队列长度
+    int max_depth; // 最大深度
+    pthread_mutex_t mutex; // 内部互斥锁
+    FREE_NODE_CB free_node_cb; 
+} QUEUE_S;
 
 /**
  * 函数名：queue初始化
@@ -26,7 +33,7 @@
  * 入参：bytes:队列单个节点的数据大小（仅data）
  * 返回值：队列
  */
-QUEUE_S *test_queue_init(int bytes, int max_depth)
+QUEUE_HANDLE test_queue_init(int bytes, int max_depth, FREE_NODE_CB cb)
 {
     int ret = 0;
 
@@ -46,14 +53,15 @@ QUEUE_S *test_queue_init(int bytes, int max_depth)
     // 队列头和尾，都指向NULL
     p_queue->head = NULL;
     p_queue->tail = NULL;
-
+    p_queue->free_node_cb = cb;
     return p_queue;
 }
 
 // 入队函数（数据内存复制给内部）
-void test_in_queue_malloc(QUEUE_S *p_queue, void *value)
+void test_in_queue_malloc(QUEUE_HANDLE handle, void *value)
 {
-    CHECK_NULL_RETURN(p_queue);
+    CHECK_NULL_RETURN(handle);
+    QUEUE_S *p_queue = (QUEUE_S *)handle;
     // CHECK_NULL_RETURN(value);
     if (p_queue->cnt >= p_queue->max_depth) {
         return ;
@@ -103,9 +111,10 @@ void test_in_queue_malloc(QUEUE_S *p_queue, void *value)
 }
 
 // 出队函数（数据内存复制给外部）
-void *test_out_queue_malloc(QUEUE_S *p_queue)
+void *test_out_queue_malloc(QUEUE_HANDLE handle)
 {
-    CHECK_NULL_RETURN_NULL(p_queue);
+    CHECK_NULL_RETURN_NULL(handle);
+    QUEUE_S *p_queue = (QUEUE_S *)handle;
 
     pthread_mutex_lock(&p_queue->mutex);
 
@@ -132,16 +141,15 @@ void *test_out_queue_malloc(QUEUE_S *p_queue)
         p_value = (void *)malloc(p_queue->bytes);
         CHECK_NULL_RETURN_NULL(p_value);
         memcpy(p_value, node->value, p_queue->bytes);
-        printf("out queue value: %p\n", p_value);
+        printf("out queue value: %p\n", node->value);
     }
     p_queue->cnt--;
 
-    pthread_mutex_unlock(&p_queue->mutex);
-
-    if (node->value != NULL) {
-        free(node->value);
-        node->value = NULL;    
+    if (p_queue->free_node_cb != NULL) {
+        p_queue->free_node_cb(node->value); 
     }
+
+    pthread_mutex_unlock(&p_queue->mutex);
 
     if (node != NULL) {
         free(node);
@@ -151,9 +159,10 @@ void *test_out_queue_malloc(QUEUE_S *p_queue)
     return p_value;
 }
 
-void test_queue_destroy(QUEUE_S *p_queue, QUEUE_DESTROY_CB cb) //destroy 函数给外部CB
+void test_queue_destroy(QUEUE_HANDLE handle) //destroy 函数给外部CB
 {
-    CHECK_NULL_RETURN(p_queue);
+    CHECK_NULL_RETURN(handle);
+    QUEUE_S *p_queue = (QUEUE_S *)handle;
 
     pthread_mutex_lock(&p_queue->mutex);
 
@@ -163,15 +172,9 @@ void test_queue_destroy(QUEUE_S *p_queue, QUEUE_DESTROY_CB cb) //destroy 函数�
     while((node = p_queue->head) != NULL) {
         
         if (node != NULL) {
-            printf("11\n");
-            fflush(stdout);// 可能value有特殊的 销毁这个队列的时候  ，外部也需要释放他们特殊的内存，out_queue的时候也需要  需要一个node_free cb
-            cb(node->value); //外部内存外部管理
-            printf("22\n");
-            fflush(stdout);
-            free(node);
-            printf("33\n");
-            fflush(stdout);
-            node = NULL;
+            if (p_queue->free_node_cb != NULL) {
+                p_queue->free_node_cb(node->value); 
+            }
         }
         p_queue->head = p_queue->head->next;
     }
@@ -183,15 +186,21 @@ void test_queue_destroy(QUEUE_S *p_queue, QUEUE_DESTROY_CB cb) //destroy 函数�
     return;
 }
 
-int test_queue_depth_get(QUEUE_S *p_queue)
+int test_queue_depth_get(QUEUE_HANDLE handle)
 {
-    CHECK_NULL_RETURN_VAL(p_queue);
+    CHECK_NULL_RETURN_VAL(handle);
+    QUEUE_S *p_queue = (QUEUE_S *)handle;
 
     return p_queue->cnt;
 }
 
-bool test_queue_is_empty(QUEUE_S *p_queue)
+bool test_queue_is_empty(QUEUE_HANDLE handle)
 {
+    if (handle == NULL) {
+        return true;
+    }
+    QUEUE_S *p_queue = (QUEUE_S *)handle;
+
     return !(p_queue->cnt);
 }
 
@@ -200,7 +209,7 @@ typedef struct test_struct {
 } TEST_STRUCT_S;
 
 
-void queue_destroy_cb(void *data)
+void free_node_cb(void *data)
 {
     free(data); //没有指向NULL
     printf("free data:%p\n", data);
@@ -208,9 +217,9 @@ void queue_destroy_cb(void *data)
 
 int main(int argc, char **argv)
 {
-    QUEUE_S *my_queue = test_queue_init(sizeof(TEST_STRUCT_S), 100);
+    QUEUE_S *my_queue = test_queue_init(sizeof(TEST_STRUCT_S), 100, free_node_cb);
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 20; i++) {
         TEST_STRUCT_S value = {0};
         value.value_int = i;
         test_in_queue_malloc(my_queue, (void *)&value);
@@ -228,9 +237,9 @@ int main(int argc, char **argv)
     // bool if_empty = test_queue_is_empty(my_queue);
     // printf("if_empty :%d\n", if_empty);
 
-    // test_queue_destroy(my_queue, queue_destroy_cb);
+    //  test_queue_destroy(my_queue);
     
-    // printf("my_queue cnt is:%d\n", my_queue->cnt);
+    // // printf("my_queue cnt is:%d\n", my_queue->cnt);
 
     // if_empty = test_queue_is_empty(my_queue);
     // printf("if_empty :%d\n", if_empty);
