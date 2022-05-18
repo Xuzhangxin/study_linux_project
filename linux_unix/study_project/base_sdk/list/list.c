@@ -6,6 +6,16 @@
 #include "list.h"
 
 
+
+void MY_PRINTF(const char *fmt, ...)
+{
+#if defined(DEBUG_BASE_SDK) && (DEBUG_BASE_SDK == 1)
+    printf(fmt);
+    fflush(stdout);
+#endif
+}
+
+
 // 初始化链表
 void link_list_init(LINK_LIST_S* list)
 {
@@ -27,7 +37,7 @@ void link_list_add_tail_node(LINK_LIST_S *list, LINK_LIST_S *node)
     for (pos = list; pos->next != NULL; pos = pos->next);
 
     pos->next = node;
-
+    MY_PRINTF("list add node:%p, last node:%p\n", node, pos);
     return ;
 }
 
@@ -39,8 +49,8 @@ void link_list_del_node(LINK_LIST_S *list, LINK_LIST_S *node)
 
     LINK_LIST_S *pos = NULL;
     LINK_LIST_S *prev = list;
-
-    for (pos = list; pos != NULL; pos = pos->next) {    
+    // 头节点不参与
+    for (pos = list->next; pos != NULL; pos = pos->next) {    
         if (pos == node) {
             break; // found node
         }
@@ -63,10 +73,16 @@ void link_list_destroy(LINK_LIST_S *list, TRRAVELSAL_CB cb)
     LINK_LIST_S *pos = NULL;
 
     while(head != NULL) {
-        pos = head;
+        pos = head;         
         head = pos->next;
-        cb(pos);
+        pos->next = NULL;
+        MY_PRINTF("list destroy node:%p, next node:%p\n", pos, pos->next);
+        if (pos != list) { // 头节点不给外部销毁处理
+            cb(pos);
+        }
     }
+
+    // *list = NULL;
 
     return;
 }
@@ -74,6 +90,7 @@ void link_list_destroy(LINK_LIST_S *list, TRRAVELSAL_CB cb)
 // 判断链表是否为空
 bool link_list_is_empty(LINK_LIST_S *list)
 {
+    MY_PRINTF("link list is empty, next node:%p", list->next);
     if (list->next == NULL) {
         return true;
     }
@@ -87,7 +104,7 @@ void link_list_for_each_entry(LINK_LIST_S *list, TRRAVELSAL_CB cb)
     CHECK_NULL_RETURN(cb);   
 
     LINK_LIST_S *pos = NULL;
-    for (pos = list; pos != NULL; pos = pos->next) {       
+    for (pos = list->next; pos != NULL; pos = pos->next) {       
         cb(pos);
     }
 
@@ -117,20 +134,18 @@ void list_travel_destroy(void *data)
     printf("free dizhi a :%p,", data);
     printf("free node a :%d,", user_data->a);
     printf("free node b :%d\n", user_data->b);
-    free(data);
+    free(data); //无法指向NULL，由外部去做，所有的取数据，遍历数据，都应该通过链表的对外接口去做，所以这里也无需指向NULL
 
-    // *data = NULL;
 }
 
 
 int main(int argc, char **argv) {
-    TEST_STRUCT_S *list = malloc(sizeof(TEST_STRUCT_S));
+    TEST_STRUCT_S *list = malloc(sizeof(TEST_STRUCT_S)); //头节点不参与操作
     memset(list, 0, sizeof(TEST_STRUCT_S));
 
     link_list_init(&list->list);
     printf("init success\n");
     printf("list dizhi a :%p\n", list);
-    fflush(stdout);
 
     TEST_STRUCT_S *node[10] = {0};
     
@@ -140,7 +155,6 @@ int main(int argc, char **argv) {
     }
 
     printf("malloc dizhi a :%p\n", node);
-    fflush(stdout);
     int i = 0;
     for (i = 0; i < 10; i++) {
         node[i]->a = i + 1;
@@ -150,8 +164,15 @@ int main(int argc, char **argv) {
 
     link_list_for_each_entry(&list->list, list_travel);
 
+    bool empty = link_list_is_empty(&list->list);
+    printf("empty 0 :%d\n", empty);    
     link_list_destroy(&list->list, list_travel_destroy);
 
+
+    empty = link_list_is_empty(&list->list);
+    printf("empty 1 :%d\n", empty);
+
+    //link_list_for_each_entry(&list->list, list_travel);
     // link_list_del_node(&list->list, &node[9].list);
     // link_list_del_node(&list->list, &node[0].list);
     // link_list_add_tail_node(&list->list, &node[0].list);
@@ -159,11 +180,11 @@ int main(int argc, char **argv) {
     // link_list_for_each_entry(&list->list, list_travel);
 
     // bool empty = link_list_is_empty(&list->list);
-    // printf("empty 1 :%d\n", empty);
+    // MY_PRINTF("empty 1 :%d\n", empty);
 
     // link_list_destroy(&list->list, list_travel_destroy);
     // empty = link_list_is_empty(&list->list);
-    // printf("empty 2 :%d\n", empty);
+    // MY_PRINTF("empty 2 :%d\n", empty);
 
     // link_list_add_tail_node(&list->list, &node[0].list);
     // link_list_for_each_entry(&list->list, list_travel);

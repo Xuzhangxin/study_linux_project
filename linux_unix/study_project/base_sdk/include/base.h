@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+#define DEBUG_BASE_SDK 0
+
 #define CHECK_NULL_RETURN_NULL(x)\
 if (NULL == (x)) { \
     printf("%s is null!\n", #x); \
