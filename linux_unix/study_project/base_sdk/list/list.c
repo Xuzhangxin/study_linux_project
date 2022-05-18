@@ -62,7 +62,6 @@ void link_list_destroy(LINK_LIST_S *list, TRRAVELSAL_CB cb)
 
     LINK_LIST_S *head = list;
     LINK_LIST_S *pos = NULL;
-
     while(head != NULL) {
         pos = head;         
         head = pos->next;
@@ -95,7 +94,7 @@ void link_list_for_each_entry(LINK_LIST_S *list, TRRAVELSAL_CB cb)
     CHECK_NULL_RETURN(cb);   
 
     LINK_LIST_S *pos = NULL;
-    for (pos = list->next; pos != NULL; pos = pos->next) {       
+    for (pos = list->next; pos != NULL; pos = pos->next) {     
         cb(pos);
     }
 
@@ -105,13 +104,15 @@ void link_list_for_each_entry(LINK_LIST_S *list, TRRAVELSAL_CB cb)
 
 
 typedef struct test_struct {
-    LINK_LIST_S list;
+
     int a;
+    LINK_LIST_S list;
     int b;
 } TEST_STRUCT_S ;
 
 void list_travel(void *data)
 {
+    // TEST_STRUCT_S *user_data = (void *)data;
     TEST_STRUCT_S *user_data = PTR_MEM(data, TEST_STRUCT_S, list);
     printf("node a :%d,", user_data->a);
     printf("node b :%d\n", user_data->b);
@@ -120,12 +121,13 @@ void list_travel(void *data)
 
 void list_travel_destroy(void *data)
 {
+    // TEST_STRUCT_S *user_data = (void *)data;
     TEST_STRUCT_S *user_data = PTR_MEM(data, TEST_STRUCT_S, list);
 
     printf("free dizhi a :%p,", data);
     printf("free node a :%d,", user_data->a);
     printf("free node b :%d\n", user_data->b);
-    free(data); //无法指向NULL，由外部去做，所有的取数据，遍历数据，都应该通过链表的对外接口去做，所以这里也无需指向NULL
+    free(user_data); //无法指向NULL，由外部去做，所有的取数据，遍历数据，都应该通过链表的对外接口去做，所以这里也无需指向NULL
 
 }
 
