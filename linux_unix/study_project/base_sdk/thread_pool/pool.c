@@ -8,10 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "pool.h"
-#include "queue.h"
+#include "../queue/queue.h"
 #include "base.h"
 #include <stdbool.h>
-
+// gcc pool.c ../queue/queue.c -lpthread ../include/base.c -I ../include/
 // 最大线程数量
 // 紧急任务 数量
 // 普通任务数量
@@ -28,11 +28,11 @@ typedef struct THREADPOOL_S {
     int fast_task_num; // 紧急任务数量
     int normal_task_num; // 普通任务数量
 
-    QUEUE_S *fast_task_queue; // 紧急任务队列
-    QUEUE_S *normal_task_queue; // 普通任务队列
+    QUEUE_HANDLE fast_task_queue; // 紧急任务队列
+    QUEUE_HANDLE normal_task_queue; // 普通任务队列
 
-    QUEUE_S *fast_thread_queue; // 紧急线程队列
-    QUEUE_S *normal_thread_queue; // 普通线程队列
+    QUEUE_HANDLE fast_thread_queue; // 紧急线程队列
+    QUEUE_HANDLE normal_thread_queue; // 普通线程队列
 
     bool fast_cond_flag;
     bool normal_cond_flag;
@@ -56,12 +56,12 @@ static void* __fast_thread_func(void *arg)
 
     while(1) {
         pthread_mutex_lock(&p_pool->mutex);
-
-        // 接收到signal到wait函数返回有时间，可能fast_task_queue已被取走，所以要再次判断，
-        while (p_pool->fast_task_queue->cnt == 0) {
+        printf("thread_pool fast_thread wait cond, tid:%lu\n", pthread_self());
+        // 接收到signal到wait函数返回有时间，可能fast_task_queue已被取走，所以要再次判断，note:解决虚假唤醒问题  唤醒丢失问题，可以用信号量，信号量内核确保不会丢失
+        while (test_queue_depth_get(p_pool->fast_task_queue) == 0) {
             pthread_cond_wait(&p_pool->fast_cond, &p_pool->mutex);
         }
-
+        printf("thread_pool fast_thread get cond, tid:%lu\n", pthread_self());
         // if (p_pool->fast_cond_flag == false) {
         //     continue;
         // }
@@ -73,14 +73,17 @@ static void* __fast_thread_func(void *arg)
             goto ERR_EXIT;
         }
 
-        node->func(node->data);
-        p_pool->fast_cond_flag = false;
-        pthread_mutex_unlock(&p_pool->mutex); // 解锁后再执行，防止死锁
 
+        // p_pool->fast_cond_flag = false;
+        pthread_mutex_unlock(&p_pool->mutex); // 解锁后再执行，防止死锁
+        node->func(node->data);
+
+        //sleep(1);
     }
 
     return NULL;
 ERR_EXIT:
+    MY_PRINTF("thread_pool: error __fast_thread_func");
     pthread_mutex_unlock(&p_pool->mutex); // 解锁后再执行，防止死锁
     return ((void *)-1);
 }
@@ -93,24 +96,24 @@ static void* __normal_thread_func(void *arg)
     while(1) {
         pthread_mutex_lock(&p_pool->mutex);
 
-        while (p_pool->normal_task_queue->cnt == 0) { 
+        printf("thread_pool normal_thread wait cond, tid:%lu\n", pthread_self());
+        while (test_queue_depth_get(p_pool->normal_task_queue) == 0) { 
             pthread_cond_wait(&p_pool->normal_cond, &p_pool->mutex);
         }
+        printf("thread_pool normal_thread get cond, tid:%lu\n", pthread_self());
 
-        // if (p_pool->normal_cond_flag == false) {
-        //     continue;
-        // }
-            // 获取到条件变量
-            TASK_NODE_S *node  = (TASK_NODE_S *)test_out_queue_malloc(p_pool->normal_task_queue);
-            if  (node == NULL) {
-                printf("node is NULL\n");
-                goto ERR_EXIT;
-            }
+        // 获取到条件变量
+        TASK_NODE_S *node  = (TASK_NODE_S *)test_out_queue_malloc(p_pool->normal_task_queue);
+        if  (node == NULL) {
+            printf("node is NULL\n");
+            goto ERR_EXIT;
+        }
 
-            node->func(node->data);
-
-        p_pool->normal_cond_flag = false;
+        // p_pool->normal_cond_flag = false;
         pthread_mutex_unlock(&p_pool->mutex); // 解锁后再执行，防止死锁
+
+        node->func(node->data);
+        //sleep(1);
     }
 
     return NULL;
@@ -168,6 +171,7 @@ static int __create_threads(THREADPOOL_S *p_pool)
 
     return 0;
 ERR_EXIT:
+    MY_PRINTF("thread_pool __create_threads err_exit\n");
     return -1;
 }
 
@@ -199,15 +203,15 @@ THREADPOOL_S* thread_pool_init()
         return NULL;
     }
 
-    p_pool->max_thread_num = 3;
-    p_pool->fast_task_num = 1;
-    p_pool->normal_task_num = 2;
+    p_pool->max_thread_num = 10;
+    p_pool->fast_task_num = 5;
+    p_pool->normal_task_num = 5;
 
-    p_pool->fast_task_queue = test_queue_init(sizeof(TASK_NODE_S));
-    p_pool->normal_task_queue = test_queue_init(sizeof(TASK_NODE_S));
+    p_pool->fast_task_queue = test_queue_init(sizeof(TASK_NODE_S), 20, NULL);
+    p_pool->normal_task_queue = test_queue_init(sizeof(TASK_NODE_S), 20, NULL);
 
-    p_pool->fast_thread_queue = test_queue_init(0);
-    p_pool->normal_thread_queue = test_queue_init(0);
+    p_pool->fast_thread_queue = test_queue_init(0, 20, NULL);
+    p_pool->normal_thread_queue = test_queue_init(0, 20, NULL);
 
     printf("prepare to create threads\n");
     ret = __create_threads(p_pool);
@@ -237,14 +241,11 @@ int thread_pool_add_task(THREADPOOL_S *p_pool, run_func func, void *arg, int if_
     }
 
     if (if_fast) {
-        while(p_pool->fast_cond_flag == true);
-        p_pool->fast_cond_flag = true;
         pthread_cond_signal(&p_pool->fast_cond);
-
+        //pthread_cond_broadcast(&p_pool->fast_cond);
     } else {
-        while(p_pool->normal_cond_flag == true);
-        p_pool->normal_cond_flag = true;
         pthread_cond_signal(&p_pool->normal_cond);
+        //pthread_cond_broadcast(&p_pool->normal_cond); //note: 
     }
 
     pthread_mutex_unlock(&p_pool->mutex);
@@ -285,9 +286,9 @@ int main(int argc, char **argv)
         {
             thread_pool_add_task(p_pool, test_func2, (void *)&i, 0);
         }
-        // sleep(1);
+        //sleep(1);
     }
-    // sleep(1000);
+    sleep(1000);
     
     return 0;
 }

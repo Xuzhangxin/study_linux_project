@@ -204,45 +204,45 @@ bool test_queue_is_empty(QUEUE_HANDLE handle)
     return !(p_queue->cnt);
 }
 
-typedef struct test_struct {
-    int value_int;
-} TEST_STRUCT_S;
+// typedef struct test_struct {
+//     int value_int;
+// } TEST_STRUCT_S;
 
 
-void free_node_cb(void *data)
-{
-    free(data); //没有指向NULL
-    printf("free data:%p\n", data);
-}
+// void free_node_cb(void *data)
+// {
+//     free(data); //没有指向NULL
+//     printf("free data:%p\n", data);
+// }
 
-int main(int argc, char **argv)
-{
-    QUEUE_S *my_queue = test_queue_init(sizeof(TEST_STRUCT_S), 100, free_node_cb);
+// int main(int argc, char **argv)
+// {
+//     QUEUE_S *my_queue = test_queue_init(sizeof(TEST_STRUCT_S), 100, free_node_cb);
 
-    for (int i = 0; i < 20; i++) {
-        TEST_STRUCT_S value = {0};
-        value.value_int = i;
-        test_in_queue_malloc(my_queue, (void *)&value);
-    }
+//     for (int i = 0; i < 20; i++) {
+//         TEST_STRUCT_S value = {0};
+//         value.value_int = i;
+//         test_in_queue_malloc(my_queue, (void *)&value);
+//     }
 
-    printf("my_queue cnt is:%d\n", my_queue->cnt);
-    fflush(stdout);
+//     printf("my_queue cnt is:%d\n", my_queue->cnt);
+//     fflush(stdout);
 
-    for (int i = 0; i < 5; i++) {
-        TEST_STRUCT_S *p_value = (TEST_STRUCT_S *)test_out_queue_malloc(my_queue);
-        printf("out p_value int2 is:%d\n", p_value->value_int);
-        fflush(stdout);
-    }
+//     for (int i = 0; i < 5; i++) {
+//         TEST_STRUCT_S *p_value = (TEST_STRUCT_S *)test_out_queue_malloc(my_queue);
+//         printf("out p_value int2 is:%d\n", p_value->value_int);
+//         fflush(stdout);
+//     }
 
-    // bool if_empty = test_queue_is_empty(my_queue);
-    // printf("if_empty :%d\n", if_empty);
+//     // bool if_empty = test_queue_is_empty(my_queue);
+//     // printf("if_empty :%d\n", if_empty);
 
-    //  test_queue_destroy(my_queue);
+//     //  test_queue_destroy(my_queue);
     
-    // // printf("my_queue cnt is:%d\n", my_queue->cnt);
+//     // // printf("my_queue cnt is:%d\n", my_queue->cnt);
 
-    // if_empty = test_queue_is_empty(my_queue);
-    // printf("if_empty :%d\n", if_empty);
+//     // if_empty = test_queue_is_empty(my_queue);
+//     // printf("if_empty :%d\n", if_empty);
 
-    return 0;
-}
+//     return 0;
+// }
