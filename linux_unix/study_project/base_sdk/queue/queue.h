@@ -11,7 +11,7 @@ typedef void (*FREE_NODE_CB) (void *data);
 
 QUEUE_HANDLE test_queue_init(int bytes, int max_depth, FREE_NODE_CB cb);
 
-void test_in_queue_malloc(QUEUE_HANDLE handle, void *value);
+int test_in_queue_malloc(QUEUE_HANDLE handle, void *value);
 
 void *test_out_queue_malloc(QUEUE_HANDLE handle);
 

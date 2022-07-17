@@ -58,17 +58,18 @@ QUEUE_HANDLE test_queue_init(int bytes, int max_depth, FREE_NODE_CB cb)
 }
 
 // 入队函数（数据内存复制给内部）
-void test_in_queue_malloc(QUEUE_HANDLE handle, void *value)
+int test_in_queue_malloc(QUEUE_HANDLE handle, void *value)
 {
-    CHECK_NULL_RETURN(handle);
+    CHECK_NULL_RETURN_VAL(handle);
     QUEUE_S *p_queue = (QUEUE_S *)handle;
+    printf("in queue cnt: %d, max_depth:%d\n", p_queue->cnt, p_queue->max_depth);
     // CHECK_NULL_RETURN(value);
     if (p_queue->cnt >= p_queue->max_depth) {
-        return ;
+        return -1;
     }
 
     QUEUE_NODE_S *node = (QUEUE_NODE_S *)malloc(sizeof(QUEUE_NODE_S));
-    CHECK_NULL_RETURN(node);
+    CHECK_NULL_RETURN_VAL(node);
     memset(node, 0, sizeof(QUEUE_NODE_S));   
 
     node->next = NULL;
@@ -84,7 +85,7 @@ void test_in_queue_malloc(QUEUE_HANDLE handle, void *value)
             MY_PRINTF("in queue malloc failure\n");
             free(node);
             node = NULL;
-            return;
+            return -1;
         }
 
         memcpy(p_value, value, p_queue->bytes); 
@@ -107,7 +108,7 @@ void test_in_queue_malloc(QUEUE_HANDLE handle, void *value)
 
     pthread_mutex_unlock(&p_queue->mutex);
 
-    return;
+    return 0;
 }
 
 // 出队函数（数据内存复制给外部）

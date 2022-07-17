@@ -21,14 +21,34 @@ void link_list_add_tail_node(LINK_LIST_S *list, LINK_LIST_S *node);
 // 删除链表中指定节点
 void link_list_del_node(LINK_LIST_S *list, LINK_LIST_S *node);
 
-// 清空链表
-void link_list_destroy(LINK_LIST_S *list, TRRAVELSAL_CB cb);
-
 // 判断链表是否为空
 bool link_list_is_empty(LINK_LIST_S *list);
 
-// 遍历链表
-void link_list_for_each_entry(LINK_LIST_S *list, TRRAVELSAL_CB cb);
+#define link_list_destroy(list, cb, type, element) \
+    LINK_LIST_S *head = list; \
+    LINK_LIST_S *pos = NULL; \
+    LINK_LIST_S *data = NULL; \
+    while(head != NULL) {   \
+        pos = head;         \    
+        head = pos->next;   \
+        pos->next = NULL;   \
+        if (pos != list) {  \
+            data = (void *)PTR_MEM(pos, type, element); \
+            cb(data);        \
+        }                   \
+    }                       \
+// 跳过了链表的头节点
+
+#define link_list_for_each_entry(list, type, element, data) \
+    LINK_LIST_S *pos = NULL;\
+    for (pos = (list)->next; pos != NULL, data = PTR_MEM(pos, type, element); pos = pos->next)
+
+
+// #define link_list_destroy(list, type, element, data, cb) \
+//     link_list_for_each_entry(list, type, element, data) {  \
+//         link_list_del_node(list, data->);
+
+// 跳过了链表的头节点
 
 
 
