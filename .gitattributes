@@ -1,0 +1,2 @@
+ffmpeg/opensource/ffmpeg-4.2.1/libavcodec/libavcodec.so.58 filter=lfs diff=lfs merge=lfs -text
+ffmpeg/opensource filter=lfs diff=lfs merge=lfs -text
