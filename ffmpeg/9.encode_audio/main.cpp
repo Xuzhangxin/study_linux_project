@@ -1,3 +1,9 @@
+/**
+* @projectName   encode_audio
+* @brief         视频编码，从本地读取PCM数据进行AAC编码
+* @author        Xu ZhangXin
+* @date          2023-6-04
+*/
 #include <stdio.h>
 #include <sys/time.h>
 #include <stdlib.h>
@@ -11,13 +17,10 @@ extern "C"
 #include <libavutil/imgutils.h>
 }
 
-#define my_printf(fmt, ...) myprintf(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-
-
-
-
 #define INPUT_FILE "48000_2_f32le.pcm"
 #define OUTPUT_FILE "output.aac"
+
+#define my_printf(fmt, ...) myprintf(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
 void myprintf(const char *file, int line, const char *__restrict fmt, ...)
 {
@@ -281,7 +284,7 @@ int main(int argc, char **argv)
 
     /// 采样字节数
     int sampleBytes = av_get_bytes_per_sample(codecContext->sample_fmt);
-    int frameBytes = sampleBytes * frame->channels * frame->nb_samples;
+    int frameBytes = frame->nb_samples * sampleBytes * frame->channels;
     my_printf("frameBytes:%d", frameBytes);
 
     uint8_t *pcmBuf = (uint8_t *)malloc(frameBytes);
