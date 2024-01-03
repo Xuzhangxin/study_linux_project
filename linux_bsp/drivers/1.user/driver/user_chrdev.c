@@ -4,9 +4,14 @@
 #include <linux/ide.h>
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/uaccess.h>
 
 #define USER_MAJOR 201
 #define USER_NAME "user_chrdev"
+
+
+
+char pri_buf[1024] = {0};
 
 static int user_open(struct inode *node, struct file *file)
 {
@@ -21,10 +26,32 @@ static int user_close(struct inode *node, struct file *file)
 static ssize_t user_read (struct file *file, char __user *data, size_t cnt, loff_t *off)
 {
     printk("user driver read");
+
+    int ret = 0;
+    ret = copy_to_user(data, pri_buf, cnt);
+    if (ret < 0)
+    {
+        printk("user driver read failed:%d", ret);
+        return ret;
+    }
+
+    printk("user driver read sucess, ret:%d", ret);
+    return ret;
 }
 static ssize_t user_write(struct file *file, const char __user *data, size_t cnt, loff_t *off)
 {
     printk("user driver write");
+
+    int ret = 0;
+    ret = copy_from_user(pri_buf, data, cnt);
+    if (ret < 0)
+    {
+        printk("user driver write failed:%d", ret);
+        return ret;
+    }
+
+    printk("user driver write sucess, ret:%d", ret);
+    return ret;
 }
 
 
