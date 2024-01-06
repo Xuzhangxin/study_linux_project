@@ -20,8 +20,12 @@ int main(int argc, char **argv)
     }
     printf("open success\n");
 
+    snprintf(w_buf, sizof(w_buf) / sizeof(w_buf[10]), "hello world");
+
     write(fd, w_buf, 10);
     read(fd, r_buf, 10);
+
+    printf("r_buf :%s", r_buf);
 
     close(fd);
 
