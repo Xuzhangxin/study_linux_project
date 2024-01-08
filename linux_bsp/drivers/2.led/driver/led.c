@@ -25,6 +25,12 @@
 
 char pri_buf[1024] = {0};
 
+static void __iomem *IMX_CCM_CCGR1;
+static void __iomem *SW_MUX_GPIO1_IO03;
+static void __iomem *SW_PAD_GPIO1_IO03;
+static void __iomem *GPIO1_DR;
+static void __iomem *GPIO1_GDIR;
+
 static int led_open(struct inode *node, struct file *file)
 {
     printk("user led driver open");
@@ -77,6 +83,16 @@ static struct file_operations led_fops = {
 
 static int __init led_init(void)
 {
+    
+    /// 寄存器地址映射
+    IMX_CCM_CCGR1 = ioremap(CCM_CCGR1_BASE, 4);
+
+
+
+
+
+
+
     /// 注册驱动
     int ret = register_chrdev(LED_MAJOR, LED_NAME, &led_fops);
     if (ret < 0)
