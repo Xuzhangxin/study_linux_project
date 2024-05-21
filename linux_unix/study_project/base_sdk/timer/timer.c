@@ -188,6 +188,8 @@ int main(int argc, char ** argv)
         tasks[i] = base_timer_create(task_func);
         printf("create handle successfully:%p\n", tasks[i]);
     }
+
+    
     for (i = 0; i < 5; i++) { 
         base_timer_start(tasks[i], (i + 1) * 1000);
         printf("tasks[%d] handle:%p, sleep:%u ms, now:%llu\n", i, tasks[i], i * 1000, __get_system_ms_time());
