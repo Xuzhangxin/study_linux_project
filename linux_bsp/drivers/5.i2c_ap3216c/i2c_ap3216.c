@@ -16,13 +16,16 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
+#define AP3216C_NAME "ap3216c"
+
 struct ap3216c_dev_t {
     dev_t m_devid;
     struct cdev m_cdev;     ///< 字符设备结构
     struct class *m_class;  ///< 类
     struct device *m_dev;   ///< 设备
-    struct device_node *nd; /* 设备节点 */
-    int major               ///< 主设备号
+    struct device_node *nd; ///< 设备节点
+    int devid;              ///< 设备号
+    int major;               ///< 主设备号
 };
 
 struct ap3216c_dev_t ap3216c_dev = {0}; 
@@ -66,28 +69,81 @@ static struct file_operations ap3216c_fops = {
     .write = ap3216c_write
 };
 
+ /* 传统匹配方式 ID 列表 */
+static const struct i2c_device_id ap3216c_id[] = {
+    {"alientek,ap3216c", 0}, 
+    {}
+};
 
+static const struct of_device_id ap3216c_of_match[] = {
+    {.compatible = "alientek,ap3216c"}
+};
 
+int ap3216c_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+    printk("ap3216c driver probe begin\n");
+
+    ///1.申请设备号
+    if (ap3216c_dev.major) {
+        ap3216c_dev.devid = MKDEV(ap3216c_dev.major, 0);
+        register_chrdev_region(ap3216c_dev.devid, 1, AP3216C_NAME);
+    } else {
+        
+    }
+
+    ///2.cdev_init、cdev_add
+
+    ///3.class_create
+
+    ///4.device_create    
+
+    printk("ap3216c driver probe done\n");
+    return 0;
+}
+
+int ap3216c_remove(struct i2c_client *client)
+{
+    ///cdev_del
+
+    ///注销设备号
+
+    ///注销device和class
+    printk("ap3216c driver remove begin\n");
+
+    printk("ap3216c driver remove done\n");
+    return 0;
+}
 
 static struct i2c_driver ap3216c_driver = {
     .probe = ap3216c_probe,
     .remove = ap3216c_remove,
-    
-} 
-
+    .driver = {
+        .owner = THIS_MODULE,
+        .name = "ap3216c",
+        .of_match_table = ap3216c_of_match,
+    }
+    .id_table = ap3216c_id,
+};
 
 static int __init ap3216c_init(void)
 {
-    int ret = i2c_add_driver();
-    printk("ap3216c driver init\n");
+    printk("ap3216c driver init begin\n");
 
-    return 0;
+    int ret = i2c_add_driver(&ap3216c_driver);
+
+    printk("ap3216c driver init done, ret:%d\n", ret);
+
+    return ret;
 }
 
 static int __exit ap3216c_exit(void)
 {
-    int
-    printk("ap3216c driver exit\n"); 
+    printk("ap3216c driver exit begin\n"); 
+
+    i2c_del_driver(&ap3216c_driver);
+
+    printk("ap3216c driver exit done\n"); 
+
     return 0;
 }
 
