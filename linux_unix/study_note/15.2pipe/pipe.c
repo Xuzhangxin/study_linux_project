@@ -1,5 +1,7 @@
-#include "apue.h"
-
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #define LINE 1024
 
 int main(int argc, char **argv)
@@ -10,15 +12,17 @@ int main(int argc, char **argv)
     char buf[LINE];
 
     if (pipe(fd1) < 0) {
-        err_sys("pipe fd1 error");
+        printf("pipe fd1 error\n");
+        return -1;
     }
     if (pipe(fd2) < 0) {
-        err_sys("pipe fd2 error");
+        printf("pipe fd2 error\n");
+        return -1;
     }
     printf("prepare fork\n");
     pid = fork();
     if (pid < 0) {
-        err_sys("fork error");
+        printf("fork error\n");
     } else if (pid > 0) {
         printf("prepare fork1\n");
         //父进程：返回子进程ID
@@ -37,7 +41,7 @@ int main(int argc, char **argv)
         num = read(fd1[0], buf, LINE);
         write(STDOUT_FILENO, buf, num);
 
-        char *str2 = "hello, this data is parent write by pipe2\n";
+        char *str2 = "hello, this data is child write by pipe2\n";
         write(fd2[1], str2, strlen(str2));
     }
     exit(0);

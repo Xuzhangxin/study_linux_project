@@ -1,4 +1,5 @@
-#include "apue.h"
+#include <stdio.h>
+#include <string.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 //write hello world 
@@ -12,7 +13,7 @@ int main(int argc, char **argv)
 
     //2.根据key创建共享存储区
     int shmid = 0;
-    shmid = shmget(key, 1024, 0);
+    shmid = shmget(key, 0, 0);
     if (shmid == -1) {
         perror("shmget error");
         return -1;
