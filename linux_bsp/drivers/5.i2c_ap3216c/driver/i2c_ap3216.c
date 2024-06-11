@@ -32,9 +32,11 @@ struct ap3216c_dev_t ap3216c_dev = {0};
 
 static int ap3216c_open(struct inode *node, struct file *file)
 {
-    file->private_data = (void *)&ap3216c_dev; ///< 设置私有数据
     printk("ap3216c driver open\n");
+    file->private_data = (void *)&ap3216c_dev; ///< 设置私有数据
+    
 
+    printk("ap3216c driver open success\n");
     return 0;
 }
 
@@ -47,6 +49,7 @@ static int ap3216c_close(struct inode *node, struct file *file)
 
 static ssize_t ap3216c_read (struct file *file, char __user *data, size_t cnt, loff_t *off)
 {
+    int ret = 0;
     printk("ap3216c driver read\n");
 
     printk("ap3216c driver read sucess, ret:%d\n", ret);
@@ -54,10 +57,11 @@ static ssize_t ap3216c_read (struct file *file, char __user *data, size_t cnt, l
 }
 static ssize_t ap3216c_write(struct file *file, const char __user *data, size_t cnt, loff_t *off)
 {
+    int ret = 0;
     printk("ap3216c driver write\n");
 
 
-    printk("ap3216c driver write sucess, buf[0]:%d", private_dev->m_buf[0]);
+    printk("ap3216c driver write sucess\n");
     return ret;
 }
 
@@ -88,14 +92,25 @@ int ap3216c_probe(struct i2c_client *client, const struct i2c_device_id *id)
         ap3216c_dev.devid = MKDEV(ap3216c_dev.major, 0);
         register_chrdev_region(ap3216c_dev.devid, 1, AP3216C_NAME);
     } else {
-        
+        alloc_chrdev_region(&ap3216c_dev.devid, 0, 1, AP3216C_NAME);
+        ap3216c_dev.major = MAJOR(ap3216c_dev.devid);
     }
 
     ///2.cdev_init、cdev_add
+    cdev_init(&ap3216c_dev.m_cdev, &ap3216c_fops);
+    cdev_add(&ap3216c_dev.m_cdev, ap3216c_dev.devid, 1);
 
     ///3.class_create
+    ap3216c_dev.m_class = class_create(THIS_MODULE, AP3216C_NAME);
+	if (IS_ERR(ap3216c_dev.m_class)) {
+		return PTR_ERR(ap3216c_dev.m_class);
+	}
 
-    ///4.device_create    
+    ///4.device_create   
+    ap3216c_dev.m_dev =  device_create(ap3216c_dev.m_class, NULL, ap3216c_dev.devid, NULL, AP3216C_NAME);
+	if (IS_ERR(ap3216c_dev.m_dev)) {
+		return PTR_ERR(ap3216c_dev.m_dev);
+	}
 
     printk("ap3216c driver probe done\n");
     return 0;
@@ -103,13 +118,19 @@ int ap3216c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 int ap3216c_remove(struct i2c_client *client)
 {
+    printk("ap3216c driver remove begin\n");
     ///cdev_del
+    cdev_del(&ap3216c_dev.m_cdev);
 
     ///注销设备号
+    unregister_chrdev(ap3216c_dev.devid, AP3216C_NAME);
 
-    ///注销device和class
-    printk("ap3216c driver remove begin\n");
-
+    ///device_destroy
+    device_destroy(ap3216c_dev.m_class, ap3216c_dev.devid);
+    
+    ///class_desroy
+    class_destroy(ap3216c_dev.m_class);
+    
     printk("ap3216c driver remove done\n");
     return 0;
 }
@@ -121,7 +142,7 @@ static struct i2c_driver ap3216c_driver = {
         .owner = THIS_MODULE,
         .name = "ap3216c",
         .of_match_table = ap3216c_of_match,
-    }
+    },
     .id_table = ap3216c_id,
 };
 
@@ -129,7 +150,9 @@ static int __init ap3216c_init(void)
 {
     printk("ap3216c driver init begin\n");
 
-    int ret = i2c_add_driver(&ap3216c_driver);
+    int ret = 0;
+    
+    ret = i2c_add_driver(&ap3216c_driver);
 
     printk("ap3216c driver init done, ret:%d\n", ret);
 
