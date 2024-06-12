@@ -102,15 +102,15 @@ int ap3216c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
     ///3.class_create
     ap3216c_dev.m_class = class_create(THIS_MODULE, AP3216C_NAME);
-	if (IS_ERR(ap3216c_dev.m_class)) {
-		return PTR_ERR(ap3216c_dev.m_class);
-	}
+    if (IS_ERR(ap3216c_dev.m_class)) {
+        return PTR_ERR(ap3216cdev.class);
+    }
 
-    ///4.device_create   
-    ap3216c_dev.m_dev =  device_create(ap3216c_dev.m_class, NULL, ap3216c_dev.devid, NULL, AP3216C_NAME);
-	if (IS_ERR(ap3216c_dev.m_dev)) {
-		return PTR_ERR(ap3216c_dev.m_dev);
-	}
+    ///4.device_create    
+    ap3216c_dev.m_dev = device_create(ap3216c_dev.m_class, NULL, ap3216c_dev.devid, NULL, AP3216C_NAME);
+    if (IS_ERR(ap3216c_dev.m_dev)) {
+        return PTR_ERR(ap3216cdev.m_dev);
+    }
 
     printk("ap3216c driver probe done\n");
     return 0;
