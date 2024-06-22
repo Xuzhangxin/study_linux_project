@@ -16,6 +16,8 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
+#include <linux/device.h>
+
 /* AP3316C 寄存器 */
 #define AP3216C_SYSTEMCONG 0x00 /* 配置寄存器 */
 #define AP3216C_INTSTATUS 0X01 /* 中断状态寄存器 */
@@ -44,9 +46,35 @@ struct ap3216c_dev_t {
 
 struct ap3216c_dev_t ap3216c_dev = {0}; 
 
+
+static ssize_t __ap3216c_read(struct ap3216c_dev_t *dev, char __user *data);
+
+static ssize_t ap3216c_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+    u8 data[3] = {0};
+    printk("ap3216c ap3216c_show");
+    
+    __ap3216c_read(&ap3216c_dev, data);
+    memcpy(buf, data, sizeof(data) / sizeof(data[0]));
+
+    return sizeof(data) / sizeof(data[0]);
+}
+
+static ssize_t ap3216c_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+    printk("ap3216c ap3216c_store, buf:%s, len:%d", buf, count);
+
+	return count;
+}
+
+static DEVICE_ATTR(ap3216c_test, S_IWUSR|S_IRUSR, ap3216c_show, ap3216c_store);
+
+
 static int ap3216c_write_reg(struct ap3216c_dev_t *dev, u8 reg, u8 *data, u16 len)
 {
-    int ret = 0;
     struct i2c_client* client = (struct i2c_client*)dev->client;
     struct i2c_msg msg;
 
@@ -60,7 +88,6 @@ static int ap3216c_write_reg(struct ap3216c_dev_t *dev, u8 reg, u8 *data, u16 le
 
 static int ap3216c_read_reg(struct ap3216c_dev_t *dev, u8 reg, u8 *data, u16 len)
 {
-    int ret = 0;
     struct i2c_client* client = (struct i2c_client*)dev->client;
     struct i2c_msg msg[2];
 
@@ -107,19 +134,14 @@ static int ap3216c_close(struct inode *node, struct file *file)
     return 0;
 }
 
-static ssize_t ap3216c_read(struct file *file, char __user *buf, size_t cnt, loff_t *off)
+static ssize_t __ap3216c_read(struct ap3216c_dev_t *dev, char __user *data)
 {
-    u8 data[3] = {0};
-    u8 read_buf[AP3216C_DATA_REG_NUM] = {0};
-    u8 i = 0;
+    int i = 0;
     int ret = 0;
-    printk("ap3216c driver read\n");
-
-    file->private_data = (void *)&ap3216c_dev; ///< 设置私有数据
-
-    /// 循环将IR、ALS、PS中的寄存器数据读取
+    u8 read_buf[AP3216C_DATA_REG_NUM] = {0};
+   /// 循环将IR、ALS、PS中的寄存器数据读取
     for (i = 0; i < AP3216C_DATA_REG_NUM; i++) {
-        ret = ap3216c_read_reg(file->private_data, AP3216C_IRDATALOW + i, read_buf, 6);
+        ret = ap3216c_read_reg(dev, AP3216C_IRDATALOW + i, read_buf, 6);
         printk("ap3216c driver read ret:%d, reg:%x, value:%d\n", ret, AP3216C_IRDATALOW + i, read_buf[i]);
     }
 
@@ -144,6 +166,19 @@ static ssize_t ap3216c_read(struct file *file, char __user *buf, size_t cnt, lof
     }
 
     printk("ap3216c driver read als data success, data:%x\n", data[1]);
+
+    return 0;
+}
+
+static ssize_t ap3216c_read(struct file *file, char __user *buf, size_t cnt, loff_t *off)
+{
+    u8 data[3] = {0};
+    int ret = 0;
+    printk("ap3216c driver read\n");
+
+    file->private_data = (void *)&ap3216c_dev; ///< 设置私有数据
+
+    __ap3216c_read(file->private_data, data);
 
     if (copy_to_user(buf, data, sizeof(data) / sizeof(data[0])) != 0) {
         return -1;
@@ -188,6 +223,12 @@ int ap3216c_probe(struct i2c_client *client, const struct i2c_device_id *id)
     ap3216c_dev.m_dev = device_create(ap3216c_dev.m_class, NULL, ap3216c_dev.devid, NULL, AP3216C_NAME);
     if (IS_ERR(ap3216c_dev.m_dev)) {
         return PTR_ERR(ap3216c_dev.m_dev);
+    }
+
+    /// for debug:
+    if (device_create_file(ap3216c_dev.m_dev, &dev_attr_ap3216c_test) != 0) {
+        printk("ap3216c device create failed\n");
+        return -1;
     }
 
     ap3216c_dev.client = client;
