@@ -40,14 +40,14 @@ struct ap3216c_dev_t {
     int devid;              ///< 设备号
     int major;               ///< 主设备号
     struct i2c_client* client; ///<i2c设备
-} ap3216c_dev;
+};
 
 struct ap3216c_dev_t ap3216c_dev = {0}; 
 
-static int ap3216c_write_reg(struct ap3216c_dev *dev, u8 reg, u8 *data, u16 len)
+static int ap3216c_write_reg(struct ap3216c_dev_t *dev, u8 reg, u8 *data, u16 len)
 {
     int ret = 0;
-    struct i2c_client* client = (i2c_client*)dev->client;
+    struct i2c_client* client = (struct i2c_client*)dev->client;
     struct i2c_msg msg;
 
     msg.addr = client->addr;            ///< 设备地址
@@ -55,18 +55,18 @@ static int ap3216c_write_reg(struct ap3216c_dev *dev, u8 reg, u8 *data, u16 len)
     msg.buf[0] = reg;                   ///< 操作寄存器地址
     memcpy(&msg.buf[1], data, len);     ///< 写寄存器的数据
     msg.len = len + 1 ;                 ///< 1byte寄存器地址+data的长度    
-    return ret = i2c_transfer(client->adapter, &msg, 1);
+    return i2c_transfer(client->adapter, &msg, 1);
 }
 
-static int ap3216c_read_reg(struct ap3216c_dev *dev, u8 reg, u8 *data, u16 len)
+static int ap3216c_read_reg(struct ap3216c_dev_t *dev, u8 reg, u8 *data, u16 len)
 {
     int ret = 0;
-    struct i2c_client* client = (i2c_client*)dev->client;
+    struct i2c_client* client = (struct i2c_client*)dev->client;
     struct i2c_msg msg[2];
 
     msg[0].addr = client->addr;             ///< 设备地址
     msg[0].flags = 0;                       ///< 写数据
-    msg[0].buf[0] = reg;                    ///< 操作寄存器地址
+    msg[0].buf = &reg;                    ///< 操作寄存器地址
     msg[0].len = 1 ;                        ///< 1byte寄存器地址 
 
     msg[1].addr = client->addr;            ///< 设备地址
@@ -74,18 +74,19 @@ static int ap3216c_read_reg(struct ap3216c_dev *dev, u8 reg, u8 *data, u16 len)
     msg[1].buf = data;                     ///< 读取数据缓冲区
     msg[1].len = len;                      ///< 读取数据长度 
 
-    return ret = i2c_transfer(client->adapter, &msg, 2);
+    return i2c_transfer(client->adapter, &msg, 2);
 }
 
 
 static int ap3216c_open(struct inode *node, struct file *file)
 {
+    u8 value = 0x00;
     printk("ap3216c driver open\n");
     file->private_data = (void *)&ap3216c_dev; ///< 设置私有数据
     
-    u8 value = 0x00;
+    
     ap3216c_write_reg(file->private_data, AP3216C_SYSTEMCONG, &value, 1);  ///< set sw reset
-    udelay(20 * 1000); ///< 最少等待10ms
+    mdelay(20); ///< 最少等待10ms
     value = 0x03;
     ap3216c_write_reg(file->private_data, AP3216C_SYSTEMCONG, &value, 1);  ///< 设置为ALS and PS+IR模式
 
@@ -95,30 +96,59 @@ static int ap3216c_open(struct inode *node, struct file *file)
 
 static int ap3216c_close(struct inode *node, struct file *file)
 {
+    u8 value = 0x00;
     printk("ap3216c driver close\n");
     file->private_data = (void *)&ap3216c_dev; ///< 设置私有数据
     
-    u8 value = 0x00;
+    
     ap3216c_write_reg(file->private_data, AP3216C_SYSTEMCONG, &value, 1);  ///< set sw reset
     
     printk("ap3216c driver close success\n");
     return 0;
 }
 
-static ssize_t ap3216c_read (struct file *file, char __user *data, size_t cnt, loff_t *off)
+static ssize_t ap3216c_read(struct file *file, char __user *buf, size_t cnt, loff_t *off)
 {
+    u8 data[3] = {0};
+    u8 read_buf[AP3216C_DATA_REG_NUM] = {0};
     u8 i = 0;
     int ret = 0;
     printk("ap3216c driver read\n");
 
     file->private_data = (void *)&ap3216c_dev; ///< 设置私有数据
 
-    u8 buf[AP3216C_DATA_REG_NUM] = {0};
     /// 循环将IR、ALS、PS中的寄存器数据读取
     for (i = 0; i < AP3216C_DATA_REG_NUM; i++) {
-        ret = ap3216c_read_reg(file->private_data, AP3216C_IRDATALOW, buf, 6);
-        printk("ap3216c driver read ret:%d, reg:%x, value:%d\n", ret, AP3216C_IRDATALOW + i, buf[i]);
+        ret = ap3216c_read_reg(file->private_data, AP3216C_IRDATALOW + i, read_buf, 6);
+        printk("ap3216c driver read ret:%d, reg:%x, value:%d\n", ret, AP3216C_IRDATALOW + i, read_buf[i]);
     }
+
+    if (read_buf[0] & 0x80) {
+        data[0] = 0;
+        printk("ap3216c driver read ir data error\n");
+    } else {
+        data[0] = (read_buf[1] << 2) | read_buf[0];
+        printk("ap3216c driver read ir data success, data:%x\n", data[0]);
+    }
+
+    data[1] = (read_buf[3] << 8) | read_buf[2];
+    printk("ap3216c driver read als data success, data:%x\n", data[1]);
+
+
+    if (read_buf[4] & 0x80) {
+        data[2] = 0;
+        printk("ap3216c driver read ps data error\n");
+    } else {
+        data[2] = ((read_buf[5] & 0x3f) << 4) | (read_buf[4] & 0x0f);
+        printk("ap3216c driver read ir data success, data:%x\n", data[0]);
+    }
+
+    printk("ap3216c driver read als data success, data:%x\n", data[1]);
+
+    if (copy_to_user(buf, data, sizeof(data) / sizeof(data[0])) != 0) {
+        return -1;
+    }
+
 
     printk("ap3216c driver read sucess, ret:%d\n", ret);
     return ret;
@@ -129,16 +159,6 @@ static struct file_operations ap3216c_fops = {
     .open = ap3216c_open,
     .release = ap3216c_close,
     .read = ap3216c_read,
-};
-
- /* 传统匹配方式 ID 列表 */
-static const struct i2c_device_id ap3216c_id[] = {
-    {"alientek,ap3216c", 0}, 
-    {}
-};
-
-static const struct of_device_id ap3216c_of_match[] = {
-    {.compatible = "alientek,ap3216c"}
 };
 
 int ap3216c_probe(struct i2c_client *client, const struct i2c_device_id *id)
@@ -161,14 +181,16 @@ int ap3216c_probe(struct i2c_client *client, const struct i2c_device_id *id)
     ///3.class_create
     ap3216c_dev.m_class = class_create(THIS_MODULE, AP3216C_NAME);
     if (IS_ERR(ap3216c_dev.m_class)) {
-        return PTR_ERR(ap3216cdev.class);
+        return PTR_ERR(ap3216c_dev.m_class);
     }
 
     ///4.device_create    
     ap3216c_dev.m_dev = device_create(ap3216c_dev.m_class, NULL, ap3216c_dev.devid, NULL, AP3216C_NAME);
     if (IS_ERR(ap3216c_dev.m_dev)) {
-        return PTR_ERR(ap3216cdev.m_dev);
+        return PTR_ERR(ap3216c_dev.m_dev);
     }
+
+    ap3216c_dev.client = client;
 
     printk("ap3216c driver probe done\n");
     return 0;
@@ -193,6 +215,17 @@ int ap3216c_remove(struct i2c_client *client)
     return 0;
 }
 
+/// 传统方式匹配
+static const struct i2c_device_id ap3216c_id[] = {
+    {"alientek,ap3216c", 0}, 
+    {}
+};
+
+/// 设备树方式匹配
+static const struct of_device_id ap3216c_of_match[] = {
+    {.compatible = "alientek,ap3216c"}
+};
+
 static struct i2c_driver ap3216c_driver = {
     .probe = ap3216c_probe,
     .remove = ap3216c_remove,
@@ -206,12 +239,10 @@ static struct i2c_driver ap3216c_driver = {
 
 static int __init ap3216c_init(void)
 {
-    printk("ap3216c driver init begin\n");
-
     int ret = 0;
-    
-    ret = i2c_add_driver(&ap3216c_driver);
 
+    printk("ap3216c driver init begin\n");
+    ret = i2c_add_driver(&ap3216c_driver);
     printk("ap3216c driver init done, ret:%d\n", ret);
 
     return ret;
@@ -220,14 +251,11 @@ static int __init ap3216c_init(void)
 static int __exit ap3216c_exit(void)
 {
     printk("ap3216c driver exit begin\n"); 
-
     i2c_del_driver(&ap3216c_driver);
-
     printk("ap3216c driver exit done\n"); 
 
     return 0;
 }
-
 
 module_init(ap3216c_init);
 module_exit(ap3216c_exit);

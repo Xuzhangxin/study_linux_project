@@ -10,23 +10,22 @@
 
 int main(int argc, char **argv)
 {
-    char w_buf[1024] = {0};
-    char r_buf[1024] = {0};
-
-    int fd = open("/dev/pinctrl_led", O_RDWR);
+    char r_buf[3] = {0};
+    int count = 100;
+    int fd = open("/dev/ap3216c", O_RDWR);
     if (fd < 0)
     {
+        printf("open ap3216c failed\n");
         return -1;
     }
-    printf("open success\n");
-
-    snprintf(w_buf, sizeof(w_buf) / sizeof(w_buf[10]), "hello world");
-
-    write(fd, w_buf, 10);
-    read(fd, r_buf, 10);
-
-    printf("r_buf :%s", r_buf);
-
+    printf("open ap3216c success\n");
+    while (count--) {
+        read(fd, r_buf, sizeof(r_buf) / sizeof(r_buf[0]));
+        printf("read ap3216c ir:%d\n", r_buf[0]);
+        printf("read ap3216c als:%d\n", r_buf[1]);
+        printf("read ap3216c ps:%d\n", r_buf[2]);
+        usleep(200 * 1000);
+    }
     close(fd);
 
 

@@ -327,7 +327,7 @@
 	};
 
 	ap3216c@1e {
-		compatible = "alientek,ap3216c";//制造商，设备型号
+		compatible = "alientek,ap3216c";
 		reg = <0x1e>;
 	};
 };
