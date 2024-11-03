@@ -240,6 +240,8 @@ int ap3216c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 int ap3216c_remove(struct i2c_client *client)
 {
     printk("ap3216c driver remove begin\n");
+
+    device_remove_file(ap3216c_dev.m_cdev,  &dev_attr_ap3216c_test);
     ///cdev_del
     cdev_del(&ap3216c_dev.m_cdev);
 
@@ -250,7 +252,7 @@ int ap3216c_remove(struct i2c_client *client)
     device_destroy(ap3216c_dev.m_class, ap3216c_dev.devid);
     
     ///class_desroy
-    class_destroy(ap3216c_dev.m_class);
+    class_destroy(ap3216c_dev.m_class);    
     
     printk("ap3216c driver remove done\n");
     return 0;
